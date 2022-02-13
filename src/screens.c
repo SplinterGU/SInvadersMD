@@ -13,6 +13,8 @@
 
 #include "sprites.h"
 
+#include "round.h"
+
 typedef struct {
     uint8_t x, y;
     char * text;
@@ -22,13 +24,16 @@ typedef struct {
 
 scrtextA helpScreenTxt[] = {
     { 12,    4,           "* HELP *"               },
-    {  8,    7,       "START  FOR CREDITS"         },
-    {  5,    9,    "START P1  FOR 1 PLAYER"        },
-    {  5,   11,    "START P2  FOR 2 PLAYERS"       },
-    {  5,   13,    "BUTTON C  FOR CONFIGURE"       },
-    {  5,   15,    "BUTTON B  FOR THIS HELP"       },
-    {  7,   21,      "MEGADRIVE VERSION BY"        },
-    {  4,   23,   "JUAN JOSE PONTEPRINO V1.5"      }
+    {  8,    8,       "START  FOR CREDITS"         },
+    {  5,   10,    "START P1  FOR 1 PLAYER"        },
+    {  5,   12,    "START P2  FOR 2 PLAYERS"       },
+    {  5,   14,    "BUTTON C  FOR CONFIGURE"       },
+    {  5,   16,    "BUTTON B  FOR THIS HELP"       },
+};
+
+scrtextA helpScreenTxt2[] = {
+    {  7,   22,      "MEGADRIVE VERSION BY"        },
+    {  4,   24,   "JUAN JOSE PONTEPRINO V1.6"      }
 };
 
 scrtextA scoreScreenTxt[] = {
@@ -48,17 +53,22 @@ scrtextA setupScreenTxt[] = {
     {  3,   7,  "LIVES"                         },
     {  3,   9,  "BONUS LIFE"                    },
     {  3,  11,  "DISPLAY COINAGE"               },
-    { 15,  14,  "OK"                            },
-    {  4,  23,  "JUAN JOSE PONTEPRINO V1.5"     }
+    {  3,  13,  "COLOR MODE"                    },
+    {  3,  15,  "SHAKE EFFECT"                  },
+    { 15,  18,  "OK"                            },
 };
 
 /* ********************************************* */
 
-Sprite * spr[6] = { NULL, NULL, NULL, NULL, NULL, NULL };
-
-/* ********************************************* */
-
 int8_t currentMenuScreen = 0;
+
+Sprite * spr_aliensA = NULL;
+Sprite * spr_aliensB = NULL;
+Sprite * spr_aliensC = NULL;
+Sprite * spr_aliensC2 = NULL;
+
+Sprite * spr_alienCYInv = NULL;
+Sprite * spr_alienCY = NULL;
 
 /* ********************************************* */
 
@@ -83,12 +93,19 @@ int PrintAtDelayArr( scrtextA * st, int8_t n, uint8_t delay ) {
 /* ********************************************* */
 
 void freeMenuSprites() {
-    int i;
-    for ( i = 0; i < sizeof( spr ) / sizeof( *spr ) ; i++ )
-        if ( spr[ i ] ) {
-            SPR_releaseSprite( spr[ i ] );
-            spr[ i ] = NULL; 
-        }
+    SPR_setVisibility( spr_ufo, HIDDEN );
+    if ( color_mode == MODE_CLASSIC ) SPR_setPalette( spr_ufo, PAL1 );
+
+    SPR_setVisibility( spr_aliensA, HIDDEN );
+    SPR_setVisibility( spr_aliensB, HIDDEN );
+    SPR_setVisibility( spr_aliensC, HIDDEN );
+    SPR_setVisibility( spr_aliensC2, HIDDEN );
+
+    SPR_setVisibility( spr_alienCYInv, HIDDEN );
+    SPR_setVisibility( spr_alienCY, HIDDEN );
+    SPR_setVisibility( spr_alien_shot[ AS_SQU ], HIDDEN );
+
+    SPR_setVisibility( spr_alien_shot_explosion[0], HIDDEN );
 }
 
 /* ********************************************* */
@@ -128,6 +145,8 @@ static int8_t animateSpriteX( int y, int from_x, int to_x, int8_t deltax, Sprite
     int px;
     uint8_t anim = 0;
 
+    SPR_setVisibility( sprite, VISIBLE );
+
     for ( px = from_x; ( deltax < 0 ) ? px >= to_x : px <= to_x; px += deltax ) {
         SPR_setPosition( sprite, px, y );
         SPR_setAnim( sprite, anim );
@@ -143,6 +162,8 @@ static int8_t animateSpriteX( int y, int from_x, int to_x, int8_t deltax, Sprite
 static int8_t animateAlienShot( int x, int from_y, int to_y, Sprite * sprite ) {
     int py;
     uint8_t anim = 0;
+
+    SPR_setVisibility( sprite, VISIBLE );
 
     for ( py = from_y; py <= to_y; py++ ) {
         anim++;
@@ -175,13 +196,24 @@ int8_t scoreTable_Screen( int8_t invertY ) {
     if ( !ret ) {
                       PrintAt(   6,  12, "*SCORE ADVANCE TABLE*" );
 
-                      spr[0] = SPR_addSprite(&SpriteSaucer, 32 + 76, 112, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-                      spr[1] = SPR_addSprite(&AlienSprC,    32 + 80, 128, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-                      spr[2] = SPR_addSprite(&AlienSprB,    32 + 80, 144, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-                      spr[3] = SPR_addSprite(&AlienSprA,    32 + 80, 160, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+                      SPR_setVisibility( spr_ufo, VISIBLE );
+                      if ( color_mode == MODE_CLASSIC ) SPR_setPalette( spr_ufo, PAL0);
+                      SPR_setPosition( spr_ufo, 32 + 76, 112 );
+                      
+                      SPR_setVisibility( spr_aliensC, VISIBLE );
+                      if ( color_mode == MODE_CLASSIC ) SPR_setPalette( spr_aliensC, PAL0);
+                      SPR_setPosition( spr_aliensC, 32 + 80, 128 );
 
-        SPR_update();
-        SYS_doVBlankProcess();
+                      SPR_setVisibility( spr_aliensB, VISIBLE );
+                      if ( color_mode == MODE_CLASSIC ) SPR_setPalette( spr_aliensB, PAL0);
+                      SPR_setPosition( spr_aliensB, 32 + 80, 144 );
+
+                      SPR_setVisibility( spr_aliensA, VISIBLE );
+                      if ( color_mode == MODE_CLASSIC ) SPR_setPalette( spr_aliensA, PAL0);
+                      SPR_setPosition( spr_aliensA, 32 + 80, 160 );
+
+                      SPR_update();
+                      SYS_doVBlankProcess();
     }
     
     if ( !ret ) ret = PrintAtDelayArr( scoreScreenTxt, sizeof( scoreScreenTxt ) / sizeof( scoreScreenTxt[0] ), 5 );
@@ -200,27 +232,24 @@ int8_t animateAlienCY() {
     ret = scoreTable_Screen( 1 );
     if ( !ret ) ret = DelayFrames( 50 ); // 1 seconds
     if ( !ret ) {
-        spr[4] = SPR_addSprite(&AlienSprC, 40, 254 + 32, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-        ret = animateSpriteX( 40,      254, 112 + 24 + 4 + 32, -2,   spr[4] );
+        if ( color_mode == MODE_CLASSIC ) SPR_setPalette( spr_aliensC2, PAL0 );
+        ret = animateSpriteX( 40,      254, 112 + 24 + 4 + 32, -2, spr_aliensC2 );
     }
     if ( !ret ) {
         PrintAt( ( uint8_t ) ( 14 + 3 ), 5, " " );
-        SPR_releaseSprite( spr[4] );
-        spr[4] = SPR_addSprite(&AlienSprCYInv, 40, 112 + 32 + 24, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-
+        SPR_setVisibility( spr_aliensC2, HIDDEN );
     }
-    if ( !ret ) ret = animateSpriteX( 40, 112 + 32 + 24,          254 + 32,  2, spr[4]    );
+    if ( !ret ) ret = animateSpriteX( 40, 112 + 32 + 24,      254 + 32,  2, spr_alienCYInv );
     if ( !ret ) {
-        SPR_releaseSprite( spr[4] );
+        SPR_setVisibility( spr_alienCYInv, HIDDEN );
         ret = DelayFrames( 100 ); // 2 seconds
     }
-    if ( !ret ) {
-        spr[4] = SPR_addSprite(&AlienSprCY, 40, 254 + 32, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-
-    }
-    if ( !ret ) ret = animateSpriteX( 40,      254 + 32, 112 + 24 + 32, -2,  spr[4]     );
+    if ( !ret ) ret = animateSpriteX( 40,      254 + 32, 112 + 24 + 32, -2, spr_alienCY );
     if ( !ret ) ret = DelayFrames( 100 ); // 2 seconds
-    if ( !ret ) PrintAt( ( uint8_t ) ( 14 + 3 ), 5, "Y" );
+    if ( !ret ) {
+        SPR_setVisibility( spr_alienCY, HIDDEN );
+        PrintAt( ( uint8_t ) ( 14 + 3 ), 5, "Y" );
+    }
 
     if ( ret ) ClearMenu();
 
@@ -260,21 +289,26 @@ int8_t inserCoin_ScreenC() {
     ret = inserCoin_Screen( 1 );
     if ( !ret ) ret = DelayFrames( 50 ); // 1 seconds
     if ( !ret ) {
-        spr[4] = SPR_addSprite(&AlienSprC, 24, 2, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+        if ( color_mode == MODE_CLASSIC ) SPR_setPalette( spr_aliensC2, PAL1 );
+        ret = animateSpriteX( 24, 2 + 32, 88 + 56 - 4 + 32, 2, spr_aliensC2 );
     }
-    if ( !ret ) ret = animateSpriteX( 24, 2 + 32, 88 + 56 - 4 + 32, 2, spr[4] );
-    if ( !ret ) {
-        spr[5] = SPR_addSprite(&SquiglyShot, 88 + 56 - 4 + 6, 24 + 8, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-
-    }
-    if ( !ret ) ret = animateAlienShot( 88 + 56 - 4 + 6 + 32, 24 + 8, 72, spr[5] );
 
     if ( !ret ) {
-        SPR_releaseSprite( spr[5] );
+        if ( color_mode == MODE_CLASSIC ) SPR_setPalette( spr_alien_shot[ AS_SQU ], PAL0 );
+        ret = animateAlienShot( 88 + 56 - 4 + 6 + 32, 24 + 8, 72, spr_alien_shot[ AS_SQU ] );
+    }
+
+    if ( !ret ) {
+        SPR_setVisibility( spr_alien_shot[ AS_SQU ], HIDDEN );
         PrintChar( ( uint8_t ) ( 11 + 7 ), 9, ' ', 0 );
-        spr[5] = SPR_addSprite(&AShotExplo, 88 + 56 + 32, 72, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+
+        SPR_setVisibility( spr_alien_shot_explosion[0], VISIBLE );
+        if ( color_mode == MODE_CLASSIC ) SPR_setPalette( spr_alien_shot_explosion[0], PAL0 );
+        SPR_setPosition( spr_alien_shot_explosion[0], 88 + 56 + 32, 72 );
+
         if ( DelayFrames( 5 ) ) return 1;
-        SPR_releaseSprite( spr[5] ); spr[5] = NULL;
+        SPR_setVisibility( spr_alien_shot_explosion[0], HIDDEN );
+
     }
 
     if ( ret ) ClearMenu();
@@ -297,7 +331,6 @@ void pushPlayerButton_Screen() {
 
 }
 
-
 /* ********************************************* */
 
 int8_t setup_Screen() {
@@ -310,6 +343,8 @@ int8_t setup_Screen() {
     ClearMenu();
 
     currentMenuScreen = 3;
+
+    int current_color_mode = color_mode;
 
     PrintAtArr( setupScreenTxt, sizeof( setupScreenTxt ) / sizeof( setupScreenTxt[0] ) );
 
@@ -350,7 +385,7 @@ int8_t setup_Screen() {
                     break;
 
                 case 2:
-                    x1 = 25; x2 = 29; y = 11;
+                    x1 = 26; x2 = 29; y = 11;
 
                     if ( left ) displayCoinage = 0;
                     if ( right ) displayCoinage = 1;
@@ -360,9 +395,36 @@ int8_t setup_Screen() {
                     break;
 
                 case 3:
-                    x1 = 17; x2 = 14; y = 14;
+                    x1 = 18; x2 = 29; y = 13;
+
+                    if ( left ) color_mode = MODE_CLASSIC;
+                    if ( right ) color_mode = MODE_MULTICOLOR;
+
+                    if ( color_mode ) flags = 1; else flags = 2;
+
+                    break;
+
+                case 4:
+                    x1 = 26; x2 = 29; y = 15;
+
+                    if ( left ) shakeEffect = 0;
+                    if ( right ) shakeEffect = 1;
+
+                    if ( shakeEffect ) flags = 1; else flags = 2;
+
+                    break;
+
+                case 5:
+                    x1 = 17; x2 = 14; y = 18;
 
                     if ( shot ) {
+
+                        if ( color_mode != current_color_mode ) {
+                            loadSprites();
+                            // Clear Ships and lifes
+                            VDP_clearTextAreaBG( BG_A, MARGIN_X_TILE, 27, 15, 1 );
+                        }
+
                         syskey.keyPressed = 0;
                         return 0;
                     }
@@ -377,17 +439,24 @@ int8_t setup_Screen() {
 
                 if ( up ) cursorPos--; else cursorPos++;
 
-                if ( cursorPos < 0 ) cursorPos = 3;
-                if ( cursorPos > 3 ) cursorPos = 0;
+                if ( cursorPos < 0 ) cursorPos = 5;
+                if ( cursorPos > 5 ) cursorPos = 0;
 
             } else {
-                PrintChar( x1, y, ( ( flags & 1 ) ? '<' : ' ' ), 0 );
-                PrintChar( x2, y, ( ( flags & 2 ) ? '>' : ' ' ), 0 );
+                PrintChar( x1, y, ' ', 0 );
+                PrintChar( x2, y, ' ', 0 );
             }
 
             PrintNumAt( 28,   7, numLives,  1 );
             PrintNumAt( 25,   9, bonusLife, 4 );
                PrintAt( 26,  11, displayCoinage ? " ON" : "OFF" );
+               PrintAt( 19,  13, color_mode ? "MULTICOLOR" : "   CLASSIC" );
+               PrintAt( 26,  15, shakeEffect ? " ON" : "OFF" );
+
+            if ( !up && !down ) {
+                if ( flags & 1 ) PrintChar( x1, y, '<', 0 );
+                if ( flags & 2 ) PrintChar( x2, y, '>', 0 );
+            }
 
         }
 
@@ -409,6 +478,10 @@ int8_t help_Screen() {
     currentMenuScreen = 4;
 
     PrintAtArr( helpScreenTxt, sizeof( helpScreenTxt ) / sizeof( helpScreenTxt[0] ) );
+
+    VDP_setTextPalette(PAL2);
+    PrintAtArr( helpScreenTxt2, sizeof( helpScreenTxt2 ) / sizeof( helpScreenTxt2[0] ) );
+    VDP_setTextPalette(PAL0);
 
     DelayFrames( 200 ); // 4 seconds
 

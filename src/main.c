@@ -23,18 +23,28 @@
 #define PLAN_A  BG_A
 #define PLAN_B  BG_B
 
-u16 custom_palette1[] = { 
-    0, VDPPALETTE_REDMASK|VDPPALETTE_GREENMASK|VDPPALETTE_BLUEMASK, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+#define COLOR_WHITE     VDPPALETTE_REDMASK|VDPPALETTE_GREENMASK|VDPPALETTE_BLUEMASK
+#define COLOR_RED       VDPPALETTE_REDMASK
+#define COLOR_GREEN     VDPPALETTE_GREENMASK
+#define COLOR_BLUE      VDPPALETTE_BLUEMASK
+#define COLOR_YELLOW    VDPPALETTE_REDMASK|VDPPALETTE_GREENMASK
+#define COLOR_CYAN      VDPPALETTE_GREENMASK|VDPPALETTE_BLUEMASK
+
+u16 custom_palette1[16] = {                            
+    0, COLOR_WHITE, COLOR_GREEN, COLOR_WHITE, COLOR_WHITE, COLOR_WHITE, COLOR_GREEN,    COLOR_RED, COLOR_YELLOW,      0x282, 0xe0a, 0x80e, COLOR_BLUE,      0xee0, 0x600, 0xe60
 } ;
 
-u16 custom_palette2[] = { 
-    0, VDPPALETTE_GREENMASK, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+u16 custom_palette2[16] = { 
+    0,   COLOR_RED, COLOR_WHITE, COLOR_WHITE, COLOR_WHITE, COLOR_GREEN, COLOR_GREEN, COLOR_YELLOW,   COLOR_BLUE,      0xee0, 0x00c,     0,          0,          0,     0,     0
 } ;
 
+u16 custom_palette3[16] = { 
+    0, COLOR_GREEN,           0, COLOR_WHITE, COLOR_GREEN, COLOR_GREEN, COLOR_GREEN,            0,            0,          0,     0, 0x444,      0x666,      0x999, 0xccc,     0
+} ;
 
 int main()
 {
-    memset( player, '\0', sizeof( player ) );
+//    memset( player, '\0', sizeof( player ) );
 
     //disable interrup
     SYS_disableInts();
@@ -49,22 +59,30 @@ int main()
 
    	/* Configuración de diseño de fuente */
     VDP_loadFontData(custom_font.tiles, 59, DMA);
-    /* Lectura de datos de la paleta */
-    VDP_setPalette(PAL0, custom_palette1 );
-    /* Configuración de la paleta de fuentes */
-    VDP_setTextPalette(PAL0);
 
     /* Lectura de datos de la paleta */
-    VDP_setPalette(PAL1, custom_palette2 );
+    VDP_setPalette( PAL0, custom_palette1 );
+    VDP_setPalette( PAL1, custom_palette2 );
+    VDP_setPalette( PAL2, custom_palette3 );
+
+    /* Configuración de la paleta de fuentes */
+    VDP_setTextPalette(PAL0);
 
     // VDP process done, we can re enable interrupts
     SYS_enableInts();
 
-	VDP_drawImageEx(PLAN_B, &background, TILE_ATTR_FULL(PAL3, FALSE, FALSE, FALSE, TILE_USERINDEX + 6 * 8), 0, 0, TRUE, DMA);
+    // reserved tiles
+    // --------------
+    // 6 * 8 = shields
+    // 2 = player (lifes)
+    // 32 = floor
+	VDP_drawImageEx(PLAN_B, &background, TILE_ATTR_FULL(PAL3, FALSE, FALSE, FALSE, TILE_USERINDEX + 6 * 8 + 2 + 32 ), 0, 0, TRUE, DMA);
 
 	loadSprites();
 
+    enableInput = 0;
     help_Screen();
+    enableInput = 1;
 
     numCredits = 0;
 

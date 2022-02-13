@@ -5,6 +5,7 @@
 #include "sprites.h"
 #include "tables.h"
 #include "screens.h"
+#include "round.h"
 
 #include "input.h"
 
@@ -62,12 +63,6 @@ uint8_t alienShotFrameCnt = 0b00000001;
 int8_t reloadCnt = 0;
 //int8_t aShotFrame = 0;
 
-enum {
-    AS_ROL = 0,
-    AS_PLU,
-    AS_SQU
-};
-
 _alienShotInfo * asRol, * asPlu, * asSqu;
 _alienShotInfo alienShotInfo[3];
 
@@ -108,7 +103,26 @@ struct {
 
 /* ********************************************* */
 
-Sprite * spr_lifes[6] = { NULL, NULL, NULL, NULL, NULL, NULL };
+Bitmap *createBitmap(u16 width, u16 heigth)
+{
+    // allocate
+    void *adr = malloc(((width * heigth) / 2) + sizeof(Bitmap));
+    Bitmap *result = (Bitmap*) adr;
+
+    if (result != NULL)
+    {
+        result->w = width;
+        result->h = heigth;
+        result->palette = NULL;
+        result->compression = COMPRESSION_NONE;
+        // set image pointer
+        result->image = (u8*) (adr + sizeof(Bitmap));
+    }
+
+    return result;
+}
+
+/* ********************************************* */
 
 Sprite * spr_aliens[55] = { NULL };
 Sprite * spr_player = NULL;
@@ -121,70 +135,220 @@ Sprite * spr_player_shot_explosion = NULL;
 Sprite * spr_ufo_explosion = NULL;
 
 Sprite * spr_alien_shot[3] = { NULL, NULL, NULL };
-
 Sprite * spr_player_shot = NULL;
 
-
+Bitmap * bitmap_floor = NULL;
 
 /* megadrive */
 
-void loadSprites() {
+void unloadSprites() {
     int n;
-    for ( n = 0; n < 6; n++ ) {
-        spr_lifes[n] = SPR_addSprite(&PlayerSprite, MARGIN_X_PX + 24 + n * 16, 216, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-        SPR_setVisibility(spr_lifes[n], HIDDEN);
-    }
 
+    // 55 sprites
     for ( n = 0; n < 11; n++ ) {
-        spr_aliens[0*11+n] = SPR_addSprite(&AlienSprA, MARGIN_X_PX + 16 * n,  0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-        SPR_setVisibility(spr_aliens[0*11+n], HIDDEN);
-        spr_aliens[1*11+n] = SPR_addSprite(&AlienSprA, MARGIN_X_PX + 16 * n, 16, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-        SPR_setVisibility(spr_aliens[1*11+n], HIDDEN);
-        spr_aliens[2*11+n] = SPR_addSprite(&AlienSprB, MARGIN_X_PX + 16 * n, 32, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-        SPR_setVisibility(spr_aliens[2*11+n], HIDDEN);
-        spr_aliens[3*11+n] = SPR_addSprite(&AlienSprB, MARGIN_X_PX + 16 * n, 48, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-        SPR_setVisibility(spr_aliens[3*11+n], HIDDEN);
-        spr_aliens[4*11+n] = SPR_addSprite(&AlienSprC, MARGIN_X_PX + 16 * n, 64, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-        SPR_setVisibility(spr_aliens[4*11+n], HIDDEN);
+        SPR_releaseSprite(spr_aliens[0*11+n]); spr_aliens[0*11+n] = NULL;
+        SPR_releaseSprite(spr_aliens[1*11+n]); spr_aliens[1*11+n] = NULL;
+        SPR_releaseSprite(spr_aliens[2*11+n]); spr_aliens[2*11+n] = NULL;
+        SPR_releaseSprite(spr_aliens[3*11+n]); spr_aliens[3*11+n] = NULL;
+        SPR_releaseSprite(spr_aliens[4*11+n]); spr_aliens[4*11+n] = NULL;
     }
 
-    spr_player = SPR_addSprite(&PlayerSprite, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-    SPR_setVisibility(spr_player, HIDDEN);
+    spr_aliensA = NULL;
+    spr_aliensB = NULL;
+    spr_aliensC = NULL;
+    spr_aliensC2 = NULL;
 
-    spr_ufo = SPR_addSprite(&SpriteSaucer, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-    SPR_setVisibility(spr_ufo, HIDDEN);
-
-    spr_alien_explosion = SPR_addSprite(&AlienExplode, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-    SPR_setVisibility(spr_alien_explosion, HIDDEN);
+    SPR_releaseSprite(spr_player); spr_player = NULL;
+    SPR_releaseSprite(spr_ufo); spr_ufo = NULL;
+    SPR_releaseSprite(spr_alien_explosion); spr_alien_explosion = NULL;
 
     for ( n = 0; n < 3; n++ ) {
-        spr_alien_shot_explosion[n] = SPR_addSprite(&AShotExplo, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-        SPR_setVisibility(spr_alien_shot_explosion[n], HIDDEN);
+        SPR_releaseSprite(spr_alien_shot_explosion[n]); spr_alien_shot_explosion[n] = NULL;
     }
 
-    spr_player_explosion = SPR_addSprite(&PlrBlowupSprites, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-    SPR_setVisibility(spr_player_explosion, HIDDEN);
+    SPR_releaseSprite(spr_player_explosion); spr_player_explosion = NULL;
+    SPR_releaseSprite(spr_player_shot_explosion); spr_player_shot_explosion = NULL;
+    SPR_releaseSprite(spr_ufo_explosion); spr_ufo_explosion = NULL;
+    SPR_releaseSprite(spr_player_shot); spr_player_shot = NULL;
+    SPR_releaseSprite(spr_alien_shot[ AS_ROL ]); spr_alien_shot[ AS_ROL ] = NULL;
+    SPR_releaseSprite(spr_alien_shot[ AS_PLU ]); spr_alien_shot[ AS_PLU ] = NULL;
+    SPR_releaseSprite(spr_alien_shot[ AS_SQU ]); spr_alien_shot[ AS_SQU ] = NULL;
+    SPR_releaseSprite(spr_alienCYInv); spr_alienCYInv = NULL;
+    SPR_releaseSprite(spr_alienCY); spr_alienCY = NULL;
 
-    spr_player_shot_explosion = SPR_addSprite(&ShotExploding, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-    SPR_setVisibility(spr_player_shot_explosion, HIDDEN);
+    if ( bitmap_floor ) {
+        free( bitmap_floor );
+        bitmap_floor = NULL;
+    }
+}
 
-    spr_ufo_explosion = SPR_addSprite(&SpriteSaucerExp, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-    SPR_setVisibility(spr_ufo_explosion, HIDDEN);
+void loadSprites() {
+    int n;
 
-    spr_player_shot = SPR_addSprite(&PlayerShotSpr, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-    SPR_setVisibility(spr_player_shot, HIDDEN);
+    if ( spr_aliensA ) unloadSprites();
 
-    spr_alien_shot[ AS_ROL ] = SPR_addSprite(&RollShot, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-    SPR_setVisibility(spr_alien_shot[ AS_ROL ], HIDDEN);
+    switch ( color_mode ) {
+        case MODE_CLASSIC: // Classic (emulate gel overlay)
 
-    spr_alien_shot[ AS_PLU ] = SPR_addSprite(&PlungerShot, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-    SPR_setVisibility(spr_alien_shot[ AS_PLU ], HIDDEN);
+            // 55 sprites
+            for ( n = 0; n < 11; n++ ) {
+                spr_aliens[0*11+n] = SPR_addSprite(&AlienSprA, MARGIN_X_PX + 16 * n,  0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+                SPR_setVisibility(spr_aliens[0*11+n], HIDDEN);
+                spr_aliens[1*11+n] = SPR_addSprite(&AlienSprA, MARGIN_X_PX + 16 * n, 16, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+                SPR_setVisibility(spr_aliens[1*11+n], HIDDEN);
+                spr_aliens[2*11+n] = SPR_addSprite(&AlienSprB, MARGIN_X_PX + 16 * n, 32, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+                SPR_setVisibility(spr_aliens[2*11+n], HIDDEN);
+                spr_aliens[3*11+n] = SPR_addSprite(&AlienSprB, MARGIN_X_PX + 16 * n, 48, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+                SPR_setVisibility(spr_aliens[3*11+n], HIDDEN);
+                spr_aliens[4*11+n] = SPR_addSprite(&AlienSprC, MARGIN_X_PX + 16 * n, 64, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+                SPR_setVisibility(spr_aliens[4*11+n], HIDDEN);
+            }
 
-    spr_alien_shot[ AS_SQU ] = SPR_addSprite(&SquiglyShot, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
-    SPR_setVisibility(spr_alien_shot[ AS_SQU ], HIDDEN);
+            spr_aliensA = spr_aliens[0];
+            spr_aliensB = spr_aliens[2*11];
+            spr_aliensC = spr_aliens[4*11];
+            spr_aliensC2 = spr_aliens[4*11+1];
+
+            // 56
+            spr_player = SPR_addSprite(&PlayerSprite, 0, 0, TILE_ATTR(PAL2, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_player, HIDDEN);
+
+            // 57
+            spr_ufo = SPR_addSprite(&SpriteSaucer, 0, 0, TILE_ATTR(PAL1, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_ufo, HIDDEN);
+
+            // 58
+            spr_alien_explosion = SPR_addSprite(&AlienExplode, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_alien_explosion, HIDDEN);
+
+            // + 3 = 61
+            for ( n = 0; n < 3; n++ ) {
+                spr_alien_shot_explosion[n] = SPR_addSprite(&AShotExplo, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+                SPR_setVisibility(spr_alien_shot_explosion[n], HIDDEN);
+            }
+
+            // 62
+            spr_player_explosion = SPR_addSprite(&PlrBlowupSprites, 0, 0, TILE_ATTR(PAL2, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_player_explosion, HIDDEN);
+
+            // 63
+            spr_player_shot_explosion = SPR_addSprite(&ShotExploding, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_player_shot_explosion, HIDDEN);
+
+            // 64
+            spr_ufo_explosion = SPR_addSprite(&SpriteSaucerExp, 0, 0, TILE_ATTR(PAL1, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_ufo_explosion, HIDDEN);
+
+            // 65
+            spr_player_shot = SPR_addSprite(&PlayerShotSpr, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_player_shot, HIDDEN);
+
+            // 66
+            spr_alien_shot[ AS_ROL ] = SPR_addSprite(&RollShot, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_alien_shot[ AS_ROL ], HIDDEN);
+
+            // 67
+            spr_alien_shot[ AS_PLU ] = SPR_addSprite(&PlungerShot, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_alien_shot[ AS_PLU ], HIDDEN);
+
+            // 68
+            spr_alien_shot[ AS_SQU ] = SPR_addSprite(&SquiglyShot, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_alien_shot[ AS_SQU ], HIDDEN);
+
+            // 69
+            spr_alienCYInv = SPR_addSprite(&AlienSprCYInv, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_alienCYInv, HIDDEN);
+
+            // 70
+            spr_alienCY = SPR_addSprite(&AlienSprCY, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_alienCY, HIDDEN);
+
+            break;
+
+        case MODE_MULTICOLOR: // Multicolor
+
+            // 55 sprites
+            for ( n = 0; n < 11; n++ ) {
+                spr_aliens[0*11+n] = SPR_addSprite(&MCAlienSprA, MARGIN_X_PX + 16 * n,  0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+                SPR_setVisibility(spr_aliens[0*11+n], HIDDEN);
+                spr_aliens[1*11+n] = SPR_addSprite(&MCAlienSprA, MARGIN_X_PX + 16 * n, 16, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+                SPR_setVisibility(spr_aliens[1*11+n], HIDDEN);
+                spr_aliens[2*11+n] = SPR_addSprite(&MCAlienSprB, MARGIN_X_PX + 16 * n, 32, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+                SPR_setVisibility(spr_aliens[2*11+n], HIDDEN);
+                spr_aliens[3*11+n] = SPR_addSprite(&MCAlienSprB, MARGIN_X_PX + 16 * n, 48, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+                SPR_setVisibility(spr_aliens[3*11+n], HIDDEN);
+                spr_aliens[4*11+n] = SPR_addSprite(&MCAlienSprC, MARGIN_X_PX + 16 * n, 64, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+                SPR_setVisibility(spr_aliens[4*11+n], HIDDEN);
+            }
+
+            spr_aliensA = spr_aliens[0];
+            spr_aliensB = spr_aliens[2*11];
+            spr_aliensC = spr_aliens[4*11];
+            spr_aliensC2 = spr_aliens[4*11+1];
+
+            // 56
+            spr_player = SPR_addSprite(&MCPlayerSprite, 0, 0, TILE_ATTR(PAL1, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_player, HIDDEN);
+
+            // 57
+            spr_ufo = SPR_addSprite(&MCSpriteSaucer, 0, 0, TILE_ATTR(PAL1, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_ufo, HIDDEN);
+
+            // 58
+            spr_alien_explosion = SPR_addSprite(&MCAlienExplode, 0, 0, TILE_ATTR(PAL1, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_alien_explosion, HIDDEN);
+
+            // + 3 = 61
+            for ( n = 0; n < 3; n++ ) {
+                spr_alien_shot_explosion[n] = SPR_addSprite(&MCAShotExplo, 0, 0, TILE_ATTR(PAL1, TRUE, FALSE, FALSE));
+                SPR_setVisibility(spr_alien_shot_explosion[n], HIDDEN);
+            }
+
+            // 62
+            spr_player_explosion = SPR_addSprite(&MCPlrBlowupSprites, 0, 0, TILE_ATTR(PAL1, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_player_explosion, HIDDEN);
+
+            // 63
+            spr_player_shot_explosion = SPR_addSprite(&MCShotExploding, 0, 0, TILE_ATTR(PAL1, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_player_shot_explosion, HIDDEN);
+
+            // 64
+            spr_ufo_explosion = SPR_addSprite(&MCSpriteSaucerExp, 0, 0, TILE_ATTR(PAL1, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_ufo_explosion, HIDDEN);
+
+            // 65
+            spr_player_shot = SPR_addSprite(&MCPlayerShotSpr, 0, 0, TILE_ATTR(PAL1, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_player_shot, HIDDEN);
+
+            // 66
+            spr_alien_shot[ AS_ROL ] = SPR_addSprite(&MCRollShot, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_alien_shot[ AS_ROL ], HIDDEN);
+
+            // 67
+            spr_alien_shot[ AS_PLU ] = SPR_addSprite(&MCPlungerShot, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_alien_shot[ AS_PLU ], HIDDEN);
+
+            // 68
+            spr_alien_shot[ AS_SQU ] = SPR_addSprite(&MCSquiglyShot, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_alien_shot[ AS_SQU ], HIDDEN);
+
+            // 69
+            spr_alienCYInv = SPR_addSprite(&MCAlienSprCYInv, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_alienCYInv, HIDDEN);
+
+            // 70
+            spr_alienCY = SPR_addSprite(&MCAlienSprCY, 0, 0, TILE_ATTR(PAL0, TRUE, FALSE, FALSE));
+            SPR_setVisibility(spr_alienCY, HIDDEN);
+
+            break;
+    }
+
+    if ( !bitmap_floor ) bitmap_floor = createBitmap( 32 * 8, 8 );
 
 }
 
+
+/* ********************************************* */
 
 void ClearGameArea() {
     int n;
@@ -212,6 +376,9 @@ void ClearGameArea() {
     
     for ( n = 0; n < 3; n++ ) SPR_setVisibility(spr_alien_shot[n], HIDDEN);
 
+    VDP_setVerticalScroll( BG_B, 0 );
+    VDP_setHorizontalScroll( BG_B, 0 );
+
     SPR_update();
     SYS_doVBlankProcess();
 }
@@ -227,7 +394,7 @@ Bitmap * cloneBitmap( const Bitmap * bmp ) {
 
 /* ********************************************* */
 
-inline uint8_t getPixel(Bitmap * bmp, int16_t x, int16_t y)
+inline uint8_t getPixel( Bitmap * bmp, int16_t x, int16_t y )
 {
     if ( x < 0 || y < 0 || x >= bmp->w || y >= bmp->h ) return 0;
     
@@ -239,7 +406,7 @@ inline uint8_t getPixel(Bitmap * bmp, int16_t x, int16_t y)
 
 /* ********************************************* */
 
-inline void unsetPixel(Bitmap * bmp, int16_t x, int16_t y)
+inline void unsetPixel( Bitmap * bmp, int16_t x, int16_t y )
 {
     if ( x < 0 || y < 0 || x >= bmp->w || y >= bmp->h ) return;
     
@@ -249,6 +416,17 @@ inline void unsetPixel(Bitmap * bmp, int16_t x, int16_t y)
     else       *dst &= 0x0f;
 }
 
+/* ********************************************* */
+
+inline void setPixel( Bitmap * bmp, int16_t x, int16_t y, int8_t color )
+{
+    if ( x < 0 || y < 0 || x >= bmp->w || y >= bmp->h ) return;
+    
+    uint8_t * dst = bmp->image + ( y * ( bmp->w >> 1 ) ) + ( x >> 1 );
+
+    if (x & 1) *dst = ( *dst & 0xf0 ) | color ;
+    else       *dst = ( *dst & 0x0f ) | ( color << 4 );
+}
 
 /* ********************************************* */
 // playerPtr->alienIdx is the current idx
@@ -477,7 +655,10 @@ void resetPlayer( int p, int8_t isFirst ) {
 
     for ( n = 0; n < 4; n++ ) {
         if ( playerPtr->shield[ n ] ) { free( playerPtr->shield[ n ] ); playerPtr->shield[ n ] = NULL; }
-        if ( !playerPtr->shield[ n ] ) playerPtr->shield[ n ] = cloneBitmap( &ShieldImage );
+        if ( !playerPtr->shield[ n ] ) {
+            if ( color_mode == MODE_CLASSIC ) playerPtr->shield[ n ] = cloneBitmap( &ShieldImage );
+            else                              playerPtr->shield[ n ] = cloneBitmap( &MCShieldImage );
+        }
     }
 
     asRol = &alienShotInfo[ AS_ROL ];
@@ -495,10 +676,22 @@ void resetPlayer( int p, int8_t isFirst ) {
 
 /* ********************************************* */
 
+void DrawFloor() {
+    int n;
+    // What is wrong with memset in megadrive? maybe memory access type?
+//    memset( bitmap_floor->image,  ( bitmap_floor->w >> 1 ) * ( bitmap_floor->h - 1 ), 0 );
+//    memset( bitmap_floor->image + ( bitmap_floor->w >> 1 ) * ( bitmap_floor->h - 1 ), bitmap_floor->w >> 1, 0x22 );
+    for ( n = 0; n < 32 * 8; n++ ) { unsetPixel( bitmap_floor, n, 0 ); unsetPixel( bitmap_floor, n, 1 ); unsetPixel( bitmap_floor, n, 2 ); unsetPixel( bitmap_floor, n, 3 ); unsetPixel( bitmap_floor, n, 4 ); unsetPixel( bitmap_floor, n, 5 ); unsetPixel( bitmap_floor, n, 6 ); setPixel( bitmap_floor, n, 7, 2 ); }
+    VDP_drawBitmapEx( BG_A, bitmap_floor, TILE_ATTR_FULL(PAL0, FALSE, FALSE, FALSE, TILE_USERINDEX + 8 * 6 + 2 ), MARGIN_X_TILE, 26, FALSE );
+}
+
+/* ********************************************* */
+
 void DrawShields() {
     int n;
+    int pal;
     for ( n = 0; n < 4; n++ ) {
-        VDP_drawBitmapEx( BG_A, playerPtr->shield[ n ], TILE_ATTR_FULL(PAL1, FALSE, FALSE, FALSE, TILE_USERINDEX + n * 6 ), MARGIN_X_TILE + 4 + 7 * n, SHIELDTOPY / 8, TRUE);
+        VDP_drawBitmapEx( BG_A, playerPtr->shield[ n ], TILE_ATTR_FULL(PAL2, FALSE, FALSE, FALSE, TILE_USERINDEX + n * 6 ), MARGIN_X_TILE + 4 + 7 * n, SHIELDTOPY / 8, FALSE );
     }
 }
 
@@ -509,13 +702,23 @@ void DrawShips() {
 
     PrintNumAt( 1, 27, playerPtr->numShips, 1 | NUM_LEFTZERO );
     int8_t l = ( ( playerPtr->numShips > 6 ) ? 6 : playerPtr->numShips ) - 1;
+
+    int pal;
+    Bitmap * pb;
+    if ( color_mode == MODE_CLASSIC ) {
+        pal = PAL2;
+        pb = &PlayerBMP;
+    } else {
+        pal = PAL1;
+        pb = &MCPlayerBMP;
+    }
+
     for ( n = 0; n < l; n++ ) {
-        SPR_setVisibility(spr_lifes[ n ], VISIBLE);
+        VDP_drawBitmapEx( BG_A, pb, TILE_ATTR_FULL(pal, FALSE, FALSE, FALSE, TILE_USERINDEX + 8 * 6 ), ( MARGIN_X_PX + 24 + n * 16 ) / 8, 216 / 8, FALSE );
     }
-    for ( ; n < 6; n++ ) {
-        SPR_setVisibility(spr_lifes[ n ], HIDDEN);
-    }
-    SPR_update();
+
+    VDP_clearTextAreaBG( BG_A, ( MARGIN_X_PX + 24 + n * 16 ) / 8, 216 / 8, ( 6 - n ) * 2, 1);
+
     SYS_doVBlankProcess();
 }
 
@@ -548,6 +751,47 @@ void hiScoreUpdate( int16_t score ) {
 
 /* ********************************************* */
 
+void drawSolidOrMulticolorSprite( int x, int y, Sprite * sprite, int base_anim_colored, int anim ) {
+
+    if ( color_mode == MODE_CLASSIC ) {
+        if ( y < SHIELDTOPY - 6 ) {
+            // Solid White
+            SPR_setPalette( sprite, PAL0 );
+
+        } else if ( y >= SHIELDTOPY ) {
+            // Solid Green
+            SPR_setPalette( sprite, PAL2 );
+
+        } else {
+            // Multicolor
+            switch( y & 7 ) {
+                case 2:
+                case 3:
+                    SPR_setPalette( sprite, PAL0 );
+                    break;
+
+                case 4:
+                case 5:
+                    SPR_setPalette( sprite, PAL1 );
+                    break;
+
+                case 6:
+                case 7:
+                    SPR_setPalette( sprite, PAL2 );
+                    break;
+            }
+        }
+    } else {
+        base_anim_colored = 0;
+    }
+
+    SPR_setAnim( sprite, base_anim_colored + anim );
+    SPR_setVisibility( sprite, VISIBLE );
+    SPR_setPosition( sprite, x, y );
+}
+
+/* ********************************************* */
+
 void createAlienShotCol( _alienShotInfo * asi, int8_t * colIdx, int8_t colMin, int8_t colMax ) {
     if ( !asi->active && !asi->explodingCnt && !shotExplodingCnt ) {
         uint8_t col = ColFireTable[ ( int ) *colIdx ];
@@ -570,11 +814,10 @@ void createAlienShotCol( _alienShotInfo * asi, int8_t * colIdx, int8_t colMin, i
 
 void handleAlienShot( int aid ) {
     _alienShotInfo * asi = &alienShotInfo[ aid ];
-    Sprite * _sprite = spr_alien_shot[ aid ];
 
     int8_t hit = 0;
 
-    SPR_setVisibility( _sprite, HIDDEN );
+    SPR_setVisibility( spr_alien_shot[ aid ], HIDDEN );
 
     asi->y += 2;
     asi->aniFrame++;
@@ -611,9 +854,7 @@ void handleAlienShot( int aid ) {
                             asi->y += 2;
 
                             // hay que borrar el escudo tambien
-                            // need fix (max 3)
-                            SPR_setVisibility( spr_alien_shot_explosion[ aid ], VISIBLE );
-                            SPR_setPosition( spr_alien_shot_explosion[ aid ], asi->x - 2 + MARGIN_X_PX, asi->y );
+                            drawSolidOrMulticolorSprite( asi->x - 2 + MARGIN_X_PX, asi->y, spr_alien_shot_explosion[ aid ], 1, 0 );
 
                             asi->active = 0;
                             asi->explodingCnt = 8; // 60;
@@ -640,7 +881,7 @@ void handleAlienShot( int aid ) {
                                 unsetPixel( playerPtr->shield[ n ], px + points[ i + 1 ], py + points[ i ] );
                             }
 
-                            VDP_drawBitmapEx( BG_A, playerPtr->shield[ n ], TILE_ATTR_FULL(PAL1, FALSE, FALSE, FALSE, TILE_USERINDEX + n * 6 ), MARGIN_X_TILE + 4 + 7 * n, SHIELDTOPY / 8, TRUE);
+                            VDP_drawBitmapEx( BG_A, playerPtr->shield[ n ], TILE_ATTR_FULL(PAL2, FALSE, FALSE, FALSE, TILE_USERINDEX + n * 6 ), MARGIN_X_TILE + 4 + 7 * n, SHIELDTOPY / 8, FALSE );
 
                             break;
                         }
@@ -648,17 +889,21 @@ void handleAlienShot( int aid ) {
                 }
             }
 
-            if ( !hit ) {
-                SPR_setVisibility( _sprite, VISIBLE );
-                SPR_setPosition( _sprite, asi->x + MARGIN_X_PX, asi->y );
-                SPR_setAnim( _sprite, asi->aniFrame );
-            }
+            if ( !hit ) drawSolidOrMulticolorSprite( asi->x + MARGIN_X_PX, asi->y, spr_alien_shot[ aid ], 4, asi->aniFrame );
+
         }
     } else {
+        // Floor collision
         asi->y = PLAYERY + 8;
 
-        SPR_setVisibility( spr_alien_shot_explosion[ aid ], VISIBLE );
-        SPR_setPosition( spr_alien_shot_explosion[ aid ], asi->x - 2 + MARGIN_X_PX, asi->y );
+        drawSolidOrMulticolorSprite( asi->x - 2 + MARGIN_X_PX, asi->y, spr_alien_shot_explosion[ aid ], 1, 0 );
+
+        // Remove pixels on the floor
+        unsetPixel( bitmap_floor, asi->x - 2 + 1, 7 );
+        unsetPixel( bitmap_floor, asi->x - 2 + 3, 7 );
+        unsetPixel( bitmap_floor, asi->x - 2 + 5, 7 );
+
+        VDP_drawBitmapEx( BG_A, bitmap_floor, TILE_ATTR_FULL(PAL0, FALSE, FALSE, FALSE, TILE_USERINDEX + 8 * 6 + 2 ), MARGIN_X_TILE, 26, FALSE );
 
         asi->active = 0;
         asi->explodingCnt = 8; //60;
@@ -670,28 +915,36 @@ void handleAlienShot( int aid ) {
 void drawShotExploding( uint8_t y ) {
     SPR_setVisibility( spr_player_shot_explosion, VISIBLE );
     SPR_setPosition( spr_player_shot_explosion, shotX - 4 + MARGIN_X_PX, y );
+
+    if ( color_mode == MODE_CLASSIC ) {
+        if ( y == SHIELDTOPY - 2 ) {
+            SPR_setPalette( spr_player_shot_explosion, PAL0 );
+            SPR_setAnim( spr_player_shot_explosion, 1 );
+        } else {
+                 if ( y <  SAUCERROW + 16 ) SPR_setPalette( spr_player_shot_explosion, PAL1 );
+            else if ( y >= SHIELDTOPY     ) SPR_setPalette( spr_player_shot_explosion, PAL2 );
+            else                            SPR_setPalette( spr_player_shot_explosion, PAL0 );
+            SPR_setAnim( spr_player_shot_explosion, 0 );
+        }
+    }
 }
 
 /* ********************************************* */
 
 void handleAShotCollision( int aid, int8_t aShotYH ) {
     _alienShotInfo * asi = &alienShotInfo[ aid ];
-    Sprite * _sprite = spr_alien_shot[ aid ];
 
-    if ( ( uint16_t ) ( shotX - asi->x ) < 3 && shotY + 4 < asi->y + aShotYH && shotY + 8 > asi->y ) {
+    if ( ( uint16_t ) ( shotX - asi->x ) < 3 && shotY < asi->y + aShotYH && shotY + 4 > asi->y ) {
         SPR_setVisibility( spr_player_shot, HIDDEN );
+        SPR_setVisibility( spr_alien_shot[ aid ], HIDDEN );
 
-        SPR_setVisibility( _sprite, HIDDEN );
+        drawSolidOrMulticolorSprite( asi->x - 3 + MARGIN_X_PX, asi->y + aShotYH, spr_alien_shot_explosion[ aid ], 1, 0 );
 
-        SPR_setVisibility( spr_alien_shot_explosion[ aid ], VISIBLE );
-        SPR_setPosition( spr_alien_shot_explosion[ aid ], asi->x - 3 + MARGIN_X_PX, asi->y + aShotYH );
-
-        SPR_setVisibility( spr_player_shot_explosion, VISIBLE );
-        SPR_setPosition( spr_player_shot_explosion, shotX - 4 + MARGIN_X_PX, shotY + 2 );
-
-        shotY = -shotY;
         asi->active = 0;
         asi->explodingCnt = 8; //60;
+
+        shotY = -( shotY - 2 );
+        drawShotExploding( -shotY );
         shotExplodingCnt = 8; //60;
         state1.killed = 1;
     }
@@ -703,9 +956,7 @@ void handleDeleteAShotExplodingCnt( int aid ) {
     _alienShotInfo * asi = &alienShotInfo[ aid ];
     if ( asi->explodingCnt ) {
         asi->explodingCnt--;
-        if ( !asi->explodingCnt ) {
-            SPR_setVisibility( spr_alien_shot_explosion[ aid ], HIDDEN );
-        }
+        if ( !asi->explodingCnt ) SPR_setVisibility( spr_alien_shot_explosion[ aid ], HIDDEN );
     }
 }
 
@@ -759,8 +1010,16 @@ int8_t iterGame() {
     // Clear Alien Explosion
     if ( alienExplodingCnt ) {
         alienExplodingCnt--;
+        if ( shakeEffect ) {
+            VDP_setHorizontalScroll( BG_B, ( random() % 3 ) - 1 );
+            VDP_setVerticalScroll( BG_B, ( random() % 3 ) - 1 );
+        }            
         if ( !alienExplodingCnt ) {
             SPR_setVisibility( spr_alien_explosion, HIDDEN );
+            if ( shakeEffect ) {
+                VDP_setHorizontalScroll( BG_B, 0 );
+                VDP_setVerticalScroll( BG_B, 0 );
+            }
             if ( !playerPtr->numAliens ) {
                 resetPlayer( currPlayer, 0 );
                 return 3; // Next round
@@ -790,13 +1049,23 @@ int8_t iterGame() {
     // Saucer Explosion
     if ( saucerActive < 0 ) {
         saucerExplodingCnt--;
+        if ( shakeEffect ) {
+            VDP_setHorizontalScroll( BG_B, ( random() % 3 ) - 1 );
+            VDP_setVerticalScroll( BG_B, ( random() % 3 ) - 1 );
+        }
         if ( saucerExplodingCnt == 24 ) {
             anybodyExploding = 1;
             handleSauScore();
             if ( !demo_mode ) scoreUpdate( SaucerScrTab[ ( int ) playerPtr->sauScore ] );
             SPR_setVisibility( spr_ufo_explosion, HIDDEN );
+            VDP_setTextPalette(PAL1);
             PrintNumAt( saucerX / 8, 2, SaucerScrTab[ ( int ) playerPtr->sauScore ], 3 );
+            VDP_setTextPalette(PAL0);
         } else if ( !saucerExplodingCnt ) {
+            if ( shakeEffect ) {
+                VDP_setHorizontalScroll( BG_B, 0 );
+                VDP_setVerticalScroll( BG_B, 0 );
+            }
             PrintAt( saucerX / 8, SAUCERROW / 8, "   " );
             saucerActive = 0;
         }
@@ -857,7 +1126,7 @@ int8_t iterGame() {
                             uint8_t * dst = bmp->image + ( y * ( bmp->w >> 1 ) );
                             memset( dst, '\0', bmp->w << 2 ) ; // w / 2 * 8
 
-                            VDP_drawBitmapEx( BG_A, playerPtr->shield[ n ], TILE_ATTR_FULL(PAL1, FALSE, FALSE, FALSE, TILE_USERINDEX + n * 6 ), MARGIN_X_TILE + 4 + 7 * n, SHIELDTOPY / 8, TRUE);
+                            VDP_drawBitmapEx( BG_A, playerPtr->shield[ n ], TILE_ATTR_FULL(PAL2, FALSE, FALSE, FALSE, TILE_USERINDEX + n * 6 ), MARGIN_X_TILE + 4 + 7 * n, SHIELDTOPY / 8, FALSE );
                         }
                     }
                     playerPtr->currentShieldTopY = posY + 8;
@@ -881,6 +1150,11 @@ int8_t iterGame() {
             }
 
             Sprite * sprite = spr_aliens[ row * 11 + ( playerPtr->alienIdx % 11 ) ];
+
+            if ( color_mode == MODE_CLASSIC ) {
+                if ( posY >= SHIELDTOPY     ) SPR_setPalette( sprite, PAL2 );
+                else                          SPR_setPalette( sprite, PAL0 );
+            }
 
             SPR_setVisibility( sprite, VISIBLE );
             SPR_setPosition( sprite, posX + MARGIN_X_PX, posY );
@@ -924,12 +1198,20 @@ int8_t iterGame() {
         playerExplodingCnt--;
         if ( playerExplodingCnt ) {
             anybodyExploding = 1;
+            if ( shakeEffect ) {
+                VDP_setHorizontalScroll( BG_B, ( ( random() % 3 ) - 1 ) * 2 );
+                VDP_setVerticalScroll( BG_B, ( ( random() % 3 ) - 1 ) * 2 );
+            }
             if ( !( playerExplodingCnt & 0x03 ) ) {
                 SPR_setVisibility( spr_player_explosion, VISIBLE );
                 SPR_setPosition( spr_player_explosion, playerX + MARGIN_X_PX, PLAYERY );
                 SPR_setAnim( spr_player_explosion, ( playerExplodingCnt & 0x04 ) ? 1 : 0 );
             }
         } else {
+            if ( shakeEffect ) {
+                VDP_setHorizontalScroll( BG_B, 0 );
+                VDP_setVerticalScroll( BG_B, 0 );
+            }
             SPR_setVisibility( spr_player_explosion, HIDDEN );
             playerPtr->numShips--;
             DrawShips();
@@ -981,7 +1263,7 @@ int8_t iterGame() {
         if ( input.shot && state1.shotReady && shotY == -1 && state1.playerIsAlive && !anybodyExploding ) {
             if ( !demo_mode ) SoundPlay( SOUND_PLAYER_SHOT, 0 );
 
-            shotY = PLAYERY - 8;
+            shotY = PLAYERY;
             shotX = playerX + 8;
             state1.shotReady = 0;
         }
@@ -999,7 +1281,7 @@ int8_t iterGame() {
 
             // Shot collision with saucer
             if ( !state1.killed && saucerActive > 0 && 
-                  shotY + 8 >= SAUCERROW && shotY + 4 < ( SAUCERROW + 8 ) &&
+                  shotY >= SAUCERROW && shotY + 3 < SAUCERROW + 8 &&
                   shotX >= saucerX + 4 && shotX < saucerX + 20
                ) {
                 SPR_setVisibility( spr_player_shot, HIDDEN );
@@ -1009,7 +1291,7 @@ int8_t iterGame() {
                 SPR_setPosition( spr_ufo_explosion, saucerX + MARGIN_X_PX, SAUCERROW );
 
                 saucerActive = -1;
-                saucerExplodingCnt = 32;
+                saucerExplodingCnt = 48; // old 32
 
                 if ( !demo_mode ) {
                     SoundStop( SOUND_UFO );
@@ -1021,13 +1303,13 @@ int8_t iterGame() {
             }
 
             // Shot collision with shield
-            if ( !state1.killed && shotY + 8 > playerPtr->currentShieldTopY && shotY + 4 < SHIELDTOPY + 16 ) {
+            if ( !state1.killed && shotY + 4 >= playerPtr->currentShieldTopY && shotY < SHIELDTOPY + 16 ) {
 
                 for ( n = 0; n < 4; n++ ) {
                     int px = shotX - ( 32 + 56 * n );
 
                     if ( px >= 0 && px < 24 ) {
-                        int py = shotY + 4 - SHIELDTOPY;
+                        int py = shotY - SHIELDTOPY;
 
                         if ( getPixel( playerPtr->shield[ n ], px, py     ) || 
                              getPixel( playerPtr->shield[ n ], px, py + 1 ) || 
@@ -1037,7 +1319,7 @@ int8_t iterGame() {
 
                             SPR_setVisibility( spr_player_shot, HIDDEN );
 
-                            shotY = -( shotY + 2 );
+                            shotY = -( shotY - 2 );
                             drawShotExploding( -shotY );
                             shotExplodingCnt = 6; //60;
                             state1.killed = 1;
@@ -1063,7 +1345,7 @@ int8_t iterGame() {
                                 unsetPixel( playerPtr->shield[ n ], px + points[ i + 1 ], py + points[ i ] );
                             }
 
-                            VDP_drawBitmapEx( BG_A, playerPtr->shield[ n ], TILE_ATTR_FULL(PAL1, FALSE, FALSE, FALSE, TILE_USERINDEX + n * 6 ), MARGIN_X_TILE + 4 + 7 * n, SHIELDTOPY / 8, TRUE);
+                            VDP_drawBitmapEx( BG_A, playerPtr->shield[ n ], TILE_ATTR_FULL(PAL2, FALSE, FALSE, FALSE, TILE_USERINDEX + n * 6 ), MARGIN_X_TILE + 4 + 7 * n, SHIELDTOPY / 8, FALSE );
 
                             break;
                         }
@@ -1104,8 +1386,13 @@ int8_t iterGame() {
 
                     if ( hit ) {
                         SPR_setVisibility( spr_player_shot, HIDDEN );
-
                         SPR_setVisibility( spr_aliens[ idx ], HIDDEN );
+
+                        if ( color_mode == MODE_CLASSIC ) {
+                            if ( alienExplodingY >= SHIELDTOPY     ) SPR_setPalette( spr_alien_explosion, PAL2 );
+                            else                                     SPR_setPalette( spr_alien_explosion, PAL0 );
+                        }
+
                         SPR_setVisibility( spr_alien_explosion, VISIBLE );
                         SPR_setPosition( spr_alien_explosion, alienExplodingX + MARGIN_X_PX, alienExplodingY );
 
@@ -1161,6 +1448,11 @@ int8_t iterGame() {
                     shotExplodingCnt = 4; //40;
                     state1.killed = 1;
                 } else {
+                    if ( color_mode == MODE_CLASSIC ) {
+                             if ( shotY <  SAUCERROW + 16 ) SPR_setPalette( spr_player_shot, PAL1 );
+                        else if ( shotY >= SHIELDTOPY     ) SPR_setPalette( spr_player_shot, PAL2 );
+                        else                                SPR_setPalette( spr_player_shot, PAL0 );
+                    }
                     SPR_setVisibility( spr_player_shot, VISIBLE );
                     SPR_setPosition( spr_player_shot, shotX + MARGIN_X_PX, shotY );
                 }
@@ -1265,7 +1557,10 @@ start_round:
     
     DrawShields();
 
-    PrintAt( 0, 26, "################################" );
+//    VDP_setTextPalette(PAL2);
+    DrawFloor();
+//    PrintAt( 0, 26, "################################" );
+//    VDP_setTextPalette(PAL0);
 
     resetRoundVars();
 
@@ -1323,14 +1618,18 @@ game_over:
     hiScoreUpdate( playerPtr->score );
 
     if ( playersInGame == 1 ) {
+        VDP_setTextPalette(PAL1);
         PrintAtDelay( 11, 3, "GAME OVER", 6 );
+        VDP_setTextPalette(PAL0);
         DelayFrames( 100 ); // 2 seconds
         ClearGameArea();
         return 1;
 
     } else if ( playersInGame == 2 ) {
-        PrintAtDelay( 6, ( uint8_t ) ( PLAYERY / 8 + 1 ), "GAME OVER  PLAYER< >", 6 );
-        PrintChar( 24, ( uint8_t ) ( PLAYERY / 8 + 1 ), ( !currPlayer ? '1' : '2' ), 0 );
+        VDP_setTextPalette(PAL2);
+        PrintAtDelay( 6, 25 /*PLAYERY / 8 + 1*/, "GAME OVER  PLAYER< >", 6 );
+        PrintChar( 24, 25 /*PLAYERY / 8 + 1*/, ( !currPlayer ? '1' : '2' ), 0 );
+        VDP_setTextPalette(PAL0);
         DelayFrames( 100 ); // 2 seconds
 
         currPlayer ^= 1;

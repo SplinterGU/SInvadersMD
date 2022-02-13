@@ -30,6 +30,8 @@ union _syskey {
 
 extern union _syskey syskey;
 
+extern uint8_t enableInput;
+
 /* ********************************************* */
 
 extern void readInput();

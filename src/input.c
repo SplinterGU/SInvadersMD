@@ -12,11 +12,16 @@ union _syskey syskey = { 0 };
 
 union _input input = { 0 };
 
-static uint8_t keyCreditEnable = 1;
+static uint8_t keyCreditEnable = 0;
+
+uint8_t enableInput = 0;
 
 /* ********************************************* */
 
 void readInput() {
+
+    if ( !enableInput ) return;
+
     uint16_t value1 = JOY_readJoypad(JOY_1);
     uint16_t value2 = JOY_readJoypad(JOY_2);
 

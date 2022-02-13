@@ -57,7 +57,8 @@ Version 1.5
 
 Version 1.6
 
-- Add color overlay emulation on Megadrive version
 - Add floor pixel changes when alien shot explosion disappear (emulate original arcade)
-- Add shake effect when player or aliens are killed
+- Add gel overlay emulation
 - Add multicolor mode
+- Add shake effect
+- Support Soft Reset (Megadrive/Sega Genesis)

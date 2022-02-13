@@ -3,6 +3,14 @@
 
 extern int8_t currentMenuScreen;
 
+extern Sprite * spr_aliensA;
+extern Sprite * spr_aliensB;
+extern Sprite * spr_aliensC;
+extern Sprite * spr_aliensC2;
+
+extern Sprite * spr_alienCYInv;
+extern Sprite * spr_alienCY;
+
 extern void DrawScreenColors();
 extern void DrawCredits();
 extern void DrawScoreHeaderAndCredits();
@@ -17,6 +25,5 @@ extern int8_t setup_Screen();
 extern int8_t help_Screen();
 
 extern void ClearMenu();
-
 
 #endif
