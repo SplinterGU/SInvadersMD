@@ -1281,7 +1281,7 @@ int8_t iterGame() {
 
             // Shot collision with saucer
             if ( !state1.killed && saucerActive > 0 && 
-                  shotY >= SAUCERROW && shotY + 3 < SAUCERROW + 8 &&
+                  shotY + 4 > SAUCERROW && shotY < SAUCERROW + 8 &&
                   shotX >= saucerX + 4 && shotX < saucerX + 20
                ) {
                 SPR_setVisibility( spr_player_shot, HIDDEN );
