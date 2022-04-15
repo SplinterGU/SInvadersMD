@@ -20,9 +20,6 @@
 
 //#include "z80_3adpcm_drv.h"
 
-#define PLAN_A  BG_A
-#define PLAN_B  BG_B
-
 #define COLOR_WHITE     VDPPALETTE_REDMASK|VDPPALETTE_GREENMASK|VDPPALETTE_BLUEMASK
 #define COLOR_RED       VDPPALETTE_REDMASK
 #define COLOR_GREEN     VDPPALETTE_GREENMASK
@@ -76,7 +73,7 @@ int main()
     // 6 * 8 = shields
     // 2 = player (lifes)
     // 32 = floor
-	VDP_drawImageEx(PLAN_B, &background, TILE_ATTR_FULL(PAL3, FALSE, FALSE, FALSE, TILE_USERINDEX + 6 * 8 + 2 + 32 ), 0, 0, TRUE, DMA);
+	VDP_drawImageEx(BG_B, &background, TILE_ATTR_FULL(PAL3, FALSE, FALSE, FALSE, TILE_USERINDEX + 6 * 8 + 2 + 32 ), 0, 0, TRUE, DMA);
 
 	loadSprites();
 
